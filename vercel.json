@@ -5,7 +5,11 @@
       "src": "api/main.py",
       "use": "@vercel/python",
       "config": {
-        "includeFiles": ["index.html", "style.css", "script.js"]
+        "includeFiles": [
+          "index.html",
+          "style.css",
+          "script.js"
+        ]
       }
     }
   ],
