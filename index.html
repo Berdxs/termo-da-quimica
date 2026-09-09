@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Química Termo</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+
+  <div class="jogo">
+
+    <header class="cabecalho">
+      <h1>🧪 QUÍMICA TERMO</h1>
+      <p class="subtitulo">Descubra a função orgânica da molécula</p>
+    </header>
+
+    <main class="tabuleiro">
+
+      <!-- Área da molécula, gerada pelo RDKit no backend -->
+      <section class="area-molecula">
+        <div class="moldura-molecula">
+          <img id="imagem-molecula" src="" alt="Estrutura da molécula sorteada" />
+          <div id="carregando-molecula" class="carregando">Sorteando molécula...</div>
+        </div>
+      </section>
+
+      <!-- Campo de resposta -->
+      <section class="area-resposta">
+        <label for="campo-resposta" class="pergunta">Qual é a função orgânica?</label>
+        <div class="linha-resposta">
+          <input
+            type="text"
+            id="campo-resposta"
+            class="campo-resposta"
+            placeholder="Digite sua resposta..."
+            autocomplete="off"
+          />
+          <button id="botao-enviar" class="botao botao-enviar">ENVIAR</button>
+          <button id="botao-dica" class="botao botao-dica">💡 DICA</button>
+        </div>
+        <p id="mensagem-erro" class="mensagem-erro"></p>
+      </section>
+
+      <!-- Área de dicas -->
+      <section class="area-dicas">
+        <div id="lista-dicas" class="lista-dicas"></div>
+      </section>
+
+      <!-- Histórico de tentativas, estilo Termo -->
+      <section class="area-tentativas">
+        <h2 class="titulo-secao">TENTATIVAS</h2>
+        <div id="lista-tentativas" class="lista-tentativas"></div>
+      </section>
+
+    </main>
+
+    <!-- Painel de vitória -->
+    <div id="painel-vitoria" class="painel-vitoria escondido">
+      <div class="cartao-vitoria">
+        <h2>🎉 VOCÊ ACERTOU!</h2>
+        <div class="ficha-quimica">
+          <p><strong>Molécula:</strong> <span id="vitoria-nome"></span></p>
+          <p><strong>Função orgânica:</strong> <span id="vitoria-funcao"></span></p>
+          <p><strong>Fórmula molecular:</strong> <span id="vitoria-formula"></span></p>
+          <p><strong>Grupo funcional:</strong> <span id="vitoria-grupo"></span></p>
+          <p class="descricao-vitoria" id="vitoria-descricao"></p>
+        </div>
+        <button id="botao-nova-rodada" class="botao botao-nova-rodada">🔬 SORTEAR OUTRA MOLÉCULA</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/script.js"></script>
+</body>
+</html>

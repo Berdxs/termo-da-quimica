@@ -1,0 +1,398 @@
+/* =========================================================
+   QUÍMICA TERMO — estilos
+   Paleta inspirada em laboratório: fundo claro, verde para
+   "acertou", âmbar para "existe mas posição errada", cinza
+   para "não existe". Tudo discreto, sem exagero visual.
+   ========================================================= */
+
+:root {
+  --cor-fundo: #f4f7f6;
+  --cor-cartao: #ffffff;
+  --cor-texto: #1f2d2b;
+  --cor-texto-suave: #5b6b68;
+  --cor-borda: #d9e2e0;
+
+  --cor-primaria: #1f8a70;
+  --cor-primaria-escura: #166b56;
+
+  --cor-correta: #3fae5b;
+  --cor-presente: #d9a53a;
+  --cor-ausente: #97a3a1;
+
+  --cor-erro: #d64545;
+
+  --sombra-cartao: 0 6px 18px rgba(20, 40, 38, 0.08);
+  --raio-borda: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: linear-gradient(180deg, #eef5f3 0%, #f4f7f6 100%);
+  color: var(--cor-texto);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 24px 16px 60px;
+}
+
+.jogo {
+  width: 100%;
+  max-width: 560px;
+}
+
+/* ---------- Cabeçalho ---------- */
+.cabecalho {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.cabecalho h1 {
+  margin: 0;
+  font-size: 1.9rem;
+  letter-spacing: 1px;
+  color: var(--cor-primaria-escura);
+}
+
+.subtitulo {
+  margin: 6px 0 0;
+  color: var(--cor-texto-suave);
+  font-size: 0.95rem;
+}
+
+/* ---------- Tabuleiro / cartões ---------- */
+.tabuleiro {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.area-molecula,
+.area-resposta,
+.area-dicas,
+.area-tentativas {
+  background: var(--cor-cartao);
+  border: 1px solid var(--cor-borda);
+  border-radius: var(--raio-borda);
+  box-shadow: var(--sombra-cartao);
+  padding: 18px;
+}
+
+/* ---------- Molécula (elemento visual principal) ---------- */
+.moldura-molecula {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border-radius: 10px;
+  background: repeating-linear-gradient(
+    45deg,
+    #fbfdfc,
+    #fbfdfc 10px,
+    #f2f7f6 10px,
+    #f2f7f6 20px
+  );
+}
+
+#imagem-molecula {
+  max-width: 100%;
+  max-height: 320px;
+  opacity: 0;
+  transform: scale(0.92);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+#imagem-molecula.visivel {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.carregando {
+  position: absolute;
+  color: var(--cor-texto-suave);
+  font-size: 0.9rem;
+}
+
+.carregando.escondido {
+  display: none;
+}
+
+/* ---------- Área de resposta ---------- */
+.pergunta {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.linha-resposta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.campo-resposta {
+  flex: 1 1 180px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 2px solid var(--cor-borda);
+  border-radius: 10px;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.campo-resposta:focus {
+  border-color: var(--cor-primaria);
+}
+
+.campo-resposta.tremer {
+  animation: tremer 0.35s ease;
+  border-color: var(--cor-erro);
+}
+
+.botao {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+
+.botao:active {
+  transform: scale(0.96);
+}
+
+.botao-enviar {
+  background: var(--cor-primaria);
+  color: white;
+}
+
+.botao-enviar:hover {
+  filter: brightness(1.08);
+}
+
+.botao-dica {
+  background: #fff4dc;
+  color: #7a5b12;
+  border: 1px solid #f0d9a3;
+}
+
+.botao-dica:hover {
+  filter: brightness(1.03);
+}
+
+.botao-dica.pulsar {
+  animation: pulsar 0.4s ease;
+}
+
+.mensagem-erro {
+  min-height: 1.2em;
+  color: var(--cor-erro);
+  font-size: 0.88rem;
+  margin: 8px 0 0;
+}
+
+/* ---------- Dicas ---------- */
+.area-dicas {
+  display: none;
+}
+
+.area-dicas.visivel {
+  display: block;
+}
+
+.lista-dicas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dica-item {
+  background: #fff9ec;
+  border-left: 4px solid var(--cor-presente);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 0.9rem;
+  color: #6b551d;
+  opacity: 0;
+  transform: translateY(-6px);
+  animation: aparecer 0.35s ease forwards;
+}
+
+/* ---------- Tentativas / tiles estilo Termo ---------- */
+.titulo-secao {
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+  letter-spacing: 1.5px;
+  color: var(--cor-texto-suave);
+}
+
+.lista-tentativas {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.linha-tentativa {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tile {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 1rem;
+  color: white;
+  text-transform: uppercase;
+  background: var(--cor-ausente);
+  transform: scale(0.5) rotate(-8deg);
+  opacity: 0;
+  animation: revelarTile 0.35s ease forwards;
+}
+
+.tile.correta {
+  background: var(--cor-correta);
+}
+
+.tile.presente {
+  background: var(--cor-presente);
+}
+
+.tile.ausente {
+  background: var(--cor-ausente);
+}
+
+/* ---------- Painel de vitória ---------- */
+.painel-vitoria {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 28, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 50;
+}
+
+.painel-vitoria.escondido {
+  display: none;
+}
+
+.cartao-vitoria {
+  background: var(--cor-cartao);
+  border-radius: 18px;
+  padding: 28px 24px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  animation: entrarVitoria 0.4s ease;
+}
+
+.cartao-vitoria h2 {
+  margin-top: 0;
+  color: var(--cor-primaria-escura);
+}
+
+.ficha-quimica {
+  text-align: left;
+  background: #f4faf7;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 16px 0;
+  font-size: 0.95rem;
+}
+
+.ficha-quimica p {
+  margin: 6px 0;
+}
+
+.descricao-vitoria {
+  color: var(--cor-texto-suave);
+  font-style: italic;
+  font-size: 0.88rem !important;
+}
+
+.botao-nova-rodada {
+  background: var(--cor-primaria);
+  color: white;
+  width: 100%;
+  padding: 14px;
+  font-size: 1rem;
+}
+
+.botao-nova-rodada:hover {
+  filter: brightness(1.08);
+}
+
+/* ---------- Animações ---------- */
+@keyframes revelarTile {
+  to {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes aparecer {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes tremer {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+
+@keyframes pulsar {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+@keyframes entrarVitoria {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- Responsividade ---------- */
+@media (max-width: 420px) {
+  .cabecalho h1 {
+    font-size: 1.5rem;
+  }
+
+  .tile {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+  }
+
+  .linha-resposta {
+    flex-direction: column;
+  }
+
+  .botao {
+    width: 100%;
+  }
+}
