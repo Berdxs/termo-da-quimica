@@ -1,46 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-QUÍMICA TERMO
-=============
-Backend do jogo. Responsabilidades deste arquivo:
-
-    - Banco de moléculas (nome, função orgânica, SMILES, fórmula, grupo
-      funcional, descrição e dicas progressivas).
-    - Sorteio de uma molécula (evitando repetir a última).
-    - Geração da imagem da estrutura molecular usando o RDKit.
-    - Normalização de texto (remove acentos, maiúsculas e espaços) para
-      que "Álcool", "alcool" e "ÁLCOOL" sejam tratadas como a mesma
-      resposta.
-    - Algoritmo de comparação letra a letra (verde / amarelo / cinza),
-      igual ao Termo/Wordle, incluindo o tratamento correto de letras
-      repetidas.
-    - Rotas HTTP (API) que o script.js consome via fetch().
-
-Por que Flask?
---------------
-O RDKit só existe em Python, então o "cérebro" do jogo precisa rodar no
-servidor. Flask foi escolhido por ser a opção mais simples possível para
-servir os arquivos estáticos (index.html, style.css, script.js) e
-expor uma API JSON pequena — sem exigir templates, build step ou
-configuração extra. Isso facilita explicar o projeto para o professor.
-
-Por que guardar o estado do jogo na sessão (Flask session)?
--------------------------------------------------------------
-Se a molécula sorteada e a contagem de dicas ficassem em variáveis
-globais do Python, dois jogadores (ou duas abas) interfeririam um no
-progresso do outro. Usando `session`, cada navegador tem seu próprio
-cookie assinado com o id da molécula atual e quantas dicas já foram
-usadas — sem precisar de banco de dados.
-
-Por que a resposta certa nunca é enviada ao navegador antes de acertar?
--------------------------------------------------------------------------
-Se o backend mandasse o nome da função orgânica no JSON da molécula,
-qualquer aluno curioso veria a resposta abrindo o DevTools (aba
-Network) do navegador. Por isso, a comparação da tentativa é feita
-inteiramente aqui no servidor: o JavaScript manda só o texto digitado
-e recebe de volta apenas o resultado (cores), nunca a resposta.
-"""
-
 import base64
 import math
 import os
@@ -51,37 +8,16 @@ from flask import Flask, jsonify, request, send_from_directory, session
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
-# IMPORTANTE: não importamos "rdkit.Chem.Draw" de propósito. Esse módulo
-# carrega uma dependência compilada (rdMolDraw2D, ligada ao Cairo/X11)
-# que precisa da biblioteca de sistema libXrender — que existe no seu
-# computador, mas não existe no ambiente serverless do Vercel, e isso
-# derruba a função inteira com "ImportError: libXrender.so.1: cannot
-# open shared object file". Por isso desenhamos o SVG da molécula nós
-# mesmos, em Python puro, usando apenas as coordenadas 2D e os tipos de
-# ligação que o RDKit calcula (isso não depende de nenhuma biblioteca
-# gráfica do sistema).
 
-# Este arquivo mora dentro de api/ (exigência do Vercel para instalar
-# as dependências do requirements.txt automaticamente), mas o
-# index.html, style.css e script.js ficam na raiz do projeto — uma
-# pasta acima — então subimos um nível para encontrá-los.
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 app = Flask(__name__, static_folder=None)
 
-# Chave de sessão fixa: suficiente para um projeto escolar local.
-# Em uma aplicação real/pública, isso deveria ser um valor secreto
-# gerado e mantido fora do código-fonte.
+
 app.secret_key = "quimica-termo-chave-de-sessao-escolar"
 
 
-# ---------------------------------------------------------------------------
-# 1. BANCO DE MOLÉCULAS
-# ---------------------------------------------------------------------------
-# Cada dicionário representa uma molécula. As "dicas" são sempre 4,
-# progressivas: (1) característica estrutural da FUNÇÃO orgânica em geral,
-# (2) informação sobre a molécula específica, (3) o grupo funcional de
-# forma direta, (4) uma pista bem próxima da resposta (primeira letra).
+
 MOLECULAS = [
     {
         "id": 1,
@@ -280,21 +216,6 @@ MOLECULAS = [
     },
     {
         "id": 14,
-        "nome": "Acetamida",
-        "funcao": "Amida",
-        "smiles": "CC(=O)N",
-        "formula": "C₂H₅NO",
-        "grupo_funcional": "–CONH₂ (carbonila ligada a nitrogênio)",
-        "descricao": "Usada como solvente industrial e na síntese de outros compostos.",
-        "dicas": [
-            "Essa função apresenta uma carbonila (C=O) ligada diretamente a um átomo de nitrogênio.",
-            "Essa substância é usada como solvente industrial.",
-            "O grupo funcional característico dessa função é –CONH₂.",
-            "A função orgânica começa com a letra 'A'.",
-        ],
-    },
-    {
-        "id": 15,
         "nome": "Metano",
         "funcao": "Hidrocarboneto",
         "smiles": "C",
@@ -309,7 +230,7 @@ MOLECULAS = [
         ],
     },
     {
-        "id": 16,
+        "id": 15,
         "nome": "Eteno",
         "funcao": "Hidrocarboneto",
         "smiles": "C=C",
@@ -324,7 +245,7 @@ MOLECULAS = [
         ],
     },
     {
-        "id": 17,
+        "id": 16,
         "nome": "Benzeno",
         "funcao": "Hidrocarboneto",
         "smiles": "c1ccccc1",
@@ -347,69 +268,37 @@ MOLECULAS_POR_ID = {m["id"]: m for m in MOLECULAS}
 # 2. NORMALIZAÇÃO DE TEXTO
 # ---------------------------------------------------------------------------
 def normalizar(texto: str) -> str:
-    """
-    Deixa o texto em minúsculas, remove acentos e remove QUALQUER
-    espaço/caractere que não seja letra.
-
-    Isso garante que:
-        "Álcool"              -> "alcool"
-        "  alcool  "          -> "alcool"
-        "Ácido Carboxílico"   -> "acidocarboxilico"
-        "acido carboxilico"   -> "acidocarboxilico"
-
-    Removemos os espaços por completo (em vez de tratá-los como uma
-    "letra" no jogo) porque algumas funções têm nomes compostos (ex.:
-    "ácido carboxílico") e criar uma casinha em branco no tabuleiro
-    para o espaço deixaria a interface confusa sem necessidade.
-    """
+    
     if texto is None:
         return ""
     texto = texto.strip().lower()
-    # Remove acentos: decompõe (NFKD) e descarta os caracteres de
-    # combinação (marcas de acento), mantendo só a letra base.
+
+   
     texto = unicodedata.normalize("NFKD", texto)
     texto = "".join(ch for ch in texto if not unicodedata.combining(ch))
-    # Mantém apenas letras (a-z), removendo espaços, hífens etc.
+
     texto = "".join(ch for ch in texto if ch.isalpha())
     return texto
 
 
-# ---------------------------------------------------------------------------
-# 3. ALGORITMO DE COMPARAÇÃO (ESTILO TERMO/WORDLE)
-# ---------------------------------------------------------------------------
+
 def comparar_tentativa(tentativa_norm: str, resposta_norm: str):
-    """
-    Compara a tentativa normalizada com a resposta normalizada e
-    devolve uma lista de status por letra: "correta", "presente" ou
-    "ausente".
-
-    Segue o algoritmo em duas passagens do Wordle/Termo para tratar
-    letras repetidas corretamente:
-
-        1ª passagem: marca como "correta" toda letra que está na
-            posição exata, e "consome" essa ocorrência da resposta
-            (para não ser contada de novo na 2ª passagem).
-
-        2ª passagem: para as letras que não ficaram "corretas",
-            marca "presente" enquanto ainda houver aquela letra
-            sobrando na resposta (não consumida na 1ª passagem);
-            senão, marca "ausente".
-    """
+    
     tamanho = len(tentativa_norm)
     resultado = ["ausente"] * tamanho
 
-    # Conta quantas vezes cada letra aparece na resposta.
+  
     contagem_resposta = {}
     for ch in resposta_norm:
         contagem_resposta[ch] = contagem_resposta.get(ch, 0) + 1
 
-    # 1ª passagem: posições corretas primeiro.
+ 
     for i in range(tamanho):
         if i < len(resposta_norm) and tentativa_norm[i] == resposta_norm[i]:
             resultado[i] = "correta"
             contagem_resposta[tentativa_norm[i]] -= 1
 
-    # 2ª passagem: letras presentes, mas na posição errada.
+
     for i in range(tamanho):
         if resultado[i] == "correta":
             continue
@@ -423,26 +312,7 @@ def comparar_tentativa(tentativa_norm: str, resposta_norm: str):
     return resultado
 
 
-# ---------------------------------------------------------------------------
-# 4. GERAÇÃO DA IMAGEM (coordenadas do RDKit + SVG desenhado à mão)
-# ---------------------------------------------------------------------------
-#
-# Por que desenhar o SVG na mão em vez de usar rdkit.Chem.Draw?
-# -----------------------------------------------------------------
-# O RDKit consegue desenhar a molécula sozinho (Draw.MolToImage), só que
-# esse recurso depende de um módulo compilado (rdMolDraw2D) que por sua
-# vez depende da biblioteca de sistema libXrender (usada por Cairo para
-# renderização gráfica). Essa biblioteca existe normalmente em
-# computadores com interface gráfica, mas NÃO existe no ambiente
-# serverless do Vercel — e como é uma dependência de sistema (não algo
-# que o "pip install" resolve), não tem como instalá-la por ali.
-#
-# A solução foi usar o RDKit só para a parte "química" do desenho:
-#     - calcular as posições 2D de cada átomo (AllChem.Compute2DCoords)
-#     - saber o tipo de cada ligação (simples/dupla/tripla)
-# e desenhar o SVG (linhas e rótulos de átomo) nós mesmos, em Python
-# puro — sem nenhuma dependência de sistema, então funciona igual tanto
-# no seu computador quanto no Vercel.
+
 
 ORDEM_DA_LIGACAO = {
     Chem.BondType.SINGLE: 1,
@@ -452,27 +322,15 @@ ORDEM_DA_LIGACAO = {
 
 
 def extrair_atomos_e_ligacoes(smiles: str):
-    """
-    Usa o RDKit para interpretar o SMILES e devolve duas listas simples
-    (sem nenhum objeto do RDKit dentro, só números e texto):
-
-        atomos    = [{"simbolo": "C", "x": 0.0, "y": 1.2}, ...]
-        ligacoes  = [{"inicio": 0, "fim": 1, "ordem": 1}, ...]
-
-    "ordem" é 1 para ligação simples, 2 para dupla, 3 para tripla.
-    """
+    
     mol = Chem.MolFromSmiles(smiles)
     if mol is None:
         raise ValueError(f"SMILES inválido: {smiles}")
 
-    # Kekulize transforma o anel aromático (benzeno, fenol) em ligações
-    # simples/duplas alternadas — a forma clássica de desenhar esse
-    # anel num livro didático, sem precisar de um estilo "aromático"
-    # especial (círculo dentro do anel) no nosso desenhador.
+    
     Chem.Kekulize(mol, clearAromaticFlags=True)
 
-    # Calcula as posições 2D de cada átomo (um layout que evita átomos
-    # sobrepostos, ângulos de ligação realistas etc.).
+    
     AllChem.Compute2DCoords(mol)
     conformador = mol.GetConformer()
 
@@ -497,14 +355,7 @@ def extrair_atomos_e_ligacoes(smiles: str):
 
 
 def construir_svg(atomos, ligacoes, tamanho_canvas=320, margem=44):
-    """
-    Recebe listas simples de átomos/ligações (ver extrair_atomos_e_ligacoes)
-    e devolve uma string SVG completa, já escalada e centralizada dentro
-    de um quadrado de `tamanho_canvas` pixels.
-
-    Esta função não sabe nada sobre RDKit — só sabe desenhar pontos e
-    linhas — o que facilita testá-la separadamente com dados fictícios.
-    """
+    
     xs = [a["x"] for a in atomos]
     ys = [a["y"] for a in atomos]
 
@@ -517,14 +368,12 @@ def construir_svg(atomos, ligacoes, tamanho_canvas=320, margem=44):
     area_disponivel = tamanho_canvas - 2 * margem
     escala = area_disponivel / max(largura_mol, altura_mol)
 
-    # Deslocamento extra para centralizar moléculas "compridas" (ex.:
-    # uma cadeia linear) dentro do canvas quadrado.
+    
     deslocamento_x = (area_disponivel - largura_mol * escala) / 2
     deslocamento_y = (area_disponivel - altura_mol * escala) / 2
 
     def transformar(x, y):
-        # SVG cresce para baixo no eixo Y; o RDKit cresce para cima.
-        # Por isso invertemos o Y na hora de converter.
+        
         px = margem + deslocamento_x + (x - min_x) * escala
         py = margem + deslocamento_y + (max_y - y) * escala
         return px, py
@@ -533,16 +382,13 @@ def construir_svg(atomos, ligacoes, tamanho_canvas=320, margem=44):
 
     partes_svg = []
 
-    # 1) Ligações primeiro, para ficarem "atrás" dos rótulos dos átomos.
+    
     for ligacao in ligacoes:
         x1, y1 = posicoes_em_pixel[ligacao["inicio"]]
         x2, y2 = posicoes_em_pixel[ligacao["fim"]]
         partes_svg.append(_svg_ligacao(x1, y1, x2, y2, ligacao["ordem"]))
 
-    # 2) Rótulos dos átomos por cima. Segue a convenção usual de fórmula
-    # estrutural: carbonos ficam implícitos (só o "vértice" da linha);
-    # qualquer outro elemento (O, N etc.) é escrito por extenso, com um
-    # pequeno fundo branco atrás para "cortar" a linha que passa embaixo.
+    
     for (px, py), atomo in zip(posicoes_em_pixel, atomos):
         if atomo["simbolo"] != "C":
             partes_svg.append(_svg_rotulo_atomo(px, py, atomo["simbolo"]))
@@ -563,8 +409,7 @@ def _svg_ligacao(x1, y1, x2, y2, ordem):
     """Desenha uma ligação simples, dupla ou tripla entre dois pontos."""
     dx, dy = x2 - x1, y2 - y1
     comprimento = math.hypot(dx, dy) or 1.0
-    # Vetor perpendicular unitário, usado para "abrir" as linhas
-    # paralelas das ligações duplas/triplas.
+    
     perp_x, perp_y = -dy / comprimento, dx / comprimento
     afastamento = 3.6
 
@@ -587,8 +432,7 @@ def _svg_ligacao(x1, y1, x2, y2, ordem):
 
 
 def _svg_rotulo_atomo(x, y, simbolo):
-    """Desenha o símbolo de um átomo (O, N...) com um fundo branco atrás,
-    para a linha da ligação não atravessar visualmente a letra."""
+    
     largura_fundo = 10 * len(simbolo) + 8
     return (
         f'<rect x="{x - largura_fundo / 2:.2f}" y="{y - 12:.2f}" '
@@ -600,12 +444,7 @@ def _svg_rotulo_atomo(x, y, simbolo):
 
 
 def gerar_imagem_molecula(smiles: str) -> str:
-    """
-    Recebe o SMILES da molécula, usa o RDKit para interpretar a
-    estrutura (posições 2D + tipos de ligação), monta um SVG à mão e
-    devolve tudo já como uma "data URI" base64 (para usar direto em um
-    <img src="..."> no HTML, sem precisar salvar arquivo no disco).
-    """
+    
     atomos, ligacoes = extrair_atomos_e_ligacoes(smiles)
     svg = construir_svg(atomos, ligacoes)
 
@@ -613,9 +452,7 @@ def gerar_imagem_molecula(smiles: str) -> str:
     return f"data:image/svg+xml;base64,{svg_base64}"
 
 
-# ---------------------------------------------------------------------------
-# 5. ROTAS: ARQUIVOS ESTÁTICOS
-# ---------------------------------------------------------------------------
+
 @app.route("/")
 def pagina_inicial():
     return send_from_directory(BASE_DIR, "index.html")
@@ -631,18 +468,10 @@ def arquivo_js():
     return send_from_directory(BASE_DIR, "script.js")
 
 
-# ---------------------------------------------------------------------------
-# 6. ROTAS: API DO JOGO
-# ---------------------------------------------------------------------------
+
 @app.route("/api/nova_molecula")
 def api_nova_molecula():
-    """
-    Sorteia uma nova molécula (evitando repetir a última, se possível),
-    gera a imagem com RDKit e guarda na sessão o id da molécula atual
-    e zera o contador de dicas usadas.
-
-    IMPORTANTE: a resposta (função orgânica) NUNCA é enviada aqui.
-    """
+    
     ultima_id = session.get("ultima_molecula_id")
 
     candidatas = MOLECULAS
@@ -665,11 +494,7 @@ def api_nova_molecula():
 
 @app.route("/api/tentativa", methods=["POST"])
 def api_tentativa():
-    """
-    Recebe a tentativa do jogador, compara com a resposta guardada na
-    sessão e devolve o resultado letra a letra. Se o jogador acertou,
-    também devolve as informações químicas para a tela de vitória.
-    """
+    
     dados = request.get_json(silent=True) or {}
     tentativa_bruta = dados.get("tentativa", "")
 
@@ -708,11 +533,7 @@ def api_tentativa():
 
 @app.route("/api/dica")
 def api_dica():
-    """
-    Devolve a próxima dica disponível para a molécula atual, controlando
-    na sessão quantas dicas já foram usadas (para nunca repetir uma dica
-    já mostrada).
-    """
+    
     molecula_id = session.get("molecula_atual_id")
     if molecula_id is None or molecula_id not in MOLECULAS_POR_ID:
         return jsonify({"erro": "Nenhuma molécula ativa. Sorteie uma nova molécula."}), 400
@@ -739,7 +560,5 @@ def api_dica():
 
 
 if __name__ == "__main__":
-    # debug=True facilita o desenvolvimento (recarrega o servidor ao
-    # salvar o arquivo). Para uso em sala/apresentação, pode deixar
-    # como está.
+    
     app.run(debug=True, port=5000)
