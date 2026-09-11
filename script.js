@@ -1,14 +1,4 @@
-/* =========================================================
-   QUÍMICA TERMO — script.js
-   Responsabilidade deste arquivo: SOMENTE interação da
-   interface. Toda a lógica de jogo (banco de moléculas,
-   sorteio, comparação de letras, controle de dicas) fica no
-   backend (main.py) e no RDKit. Aqui só capturamos eventos,
-   chamamos a API via fetch() e desenhamos o resultado na
-   tela, com pequenas animações.
-   ========================================================= */
 
-// ---------- Referências dos elementos da página ----------
 const imagemMolecula = document.getElementById("imagem-molecula");
 const carregandoMolecula = document.getElementById("carregando-molecula");
 
@@ -30,13 +20,11 @@ const vitoriaGrupo = document.getElementById("vitoria-grupo");
 const vitoriaDescricao = document.getElementById("vitoria-descricao");
 const botaoNovaRodada = document.getElementById("botao-nova-rodada");
 
-// Estado local simples: apenas para não deixar o jogador clicar
-// "enviar" duas vezes enquanto uma requisição está em andamento,
-// e para saber se a rodada já foi ganha (desabilita novos envios).
+
 let enviando = false;
 let rodadaGanha = false;
 
-// ---------- Funções auxiliares de UI ----------
+
 
 function mostrarErro(texto) {
   mensagemErro.textContent = texto;
@@ -48,18 +36,12 @@ function limparErro() {
 
 function sacudirCampo() {
   campoResposta.classList.remove("tremer");
-  // Reinicia a animação removendo e readicionando a classe.
   requestAnimationFrame(() => {
     campoResposta.classList.add("tremer");
   });
 }
 
-/**
- * Desenha uma nova linha de tentativa como uma sequência de "tiles",
- * cada um colorido conforme o resultado (correta/presente/ausente)
- * vindo do backend. As letras aparecem com uma pequena animação em
- * cascata, imitando a revelação do Termo/Wordle.
- */
+
 function renderizarTentativa(tentativaNormalizada, diff) {
   const linha = document.createElement("div");
   linha.className = "linha-tentativa";
@@ -98,10 +80,10 @@ function esconderPainelVitoria() {
   painelVitoria.classList.add("escondido");
 }
 
-// ---------- Chamadas à API ----------
+
 
 async function carregarNovaMolecula() {
-  // Reseta a interface para uma nova rodada.
+
   rodadaGanha = false;
   limparErro();
   listaTentativas.innerHTML = "";
@@ -171,8 +153,7 @@ async function enviarTentativa() {
       rodadaGanha = true;
       campoResposta.disabled = true;
       botaoDica.disabled = true;
-      // Pequeno atraso para o jogador ver os tiles verdes antes do
-      // painel de vitória aparecer por cima.
+
       setTimeout(() => mostrarPainelVitoria(dados.info), 500);
     } else {
       sacudirCampo();
@@ -182,7 +163,7 @@ async function enviarTentativa() {
     console.error(erro);
   } finally {
     enviando = false;
-    botaoEnviar.disabled = rodadaGanha; // permanece desabilitado só se já ganhou
+    botaoEnviar.disabled = rodadaGanha; 
   }
 
   campoResposta.focus();
@@ -215,7 +196,7 @@ async function pedirDica() {
   }
 }
 
-// ---------- Eventos ----------
+
 
 botaoEnviar.addEventListener("click", enviarTentativa);
 
@@ -226,7 +207,7 @@ campoResposta.addEventListener("keydown", (evento) => {
   }
 });
 
-// Some com a mensagem de erro assim que o jogador começa a digitar de novo.
+
 campoResposta.addEventListener("input", limparErro);
 
 botaoDica.addEventListener("click", pedirDica);
@@ -236,5 +217,5 @@ botaoNovaRodada.addEventListener("click", () => {
   carregarNovaMolecula();
 });
 
-// ---------- Início do jogo ----------
+
 carregarNovaMolecula();
